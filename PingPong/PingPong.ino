@@ -1,40 +1,26 @@
+//------------------------------------
+//  ALEJANDRO DE LOS SANTOS PUERTO
+//  ALEJANDRODLSP@HOTMAIL.ES
+//  @ALEJANDRODLSP
+//  10/9/2018
+//------------------------------------
+// AN ARDUINO REFLEX MINIGAME USING A SERIAL MP3 PLAYER MODULE AND ws2801b LED's
+//
+
 #include <FastLED.h>
 #include <SoftwareSerial.h> 
 
 // ------------------------------------------------- SOUND DEFINES -------------------------------------------
-#define NEXT_SONG 0X01 
-#define PREV_SONG 0X02 
+#define CMD_PLAY_W_INDEX 0X03 // INDEX OF SONG REQUIRED
 
-#define CMD_PLAY_W_INDEX 0X03 //DATA IS REQUIRED (number of song)
+#define CMD_SET_VOLUME 0X06 //DATA REQUIRED
+#define CMD_PLAY_WITHVOLUME 0X22 //INDEX OF SONG REQUIRED, VOLUME REQUIRED
 
-#define VOLUME_UP_ONE 0X04
-#define VOLUME_DOWN_ONE 0X05
-#define CMD_SET_VOLUME 0X06//DATA IS REQUIRED (number of volume from 0 up to 30(0x1E))
-#define SET_DAC 0X17
-#define CMD_PLAY_WITHVOLUME 0X22 //data is needed  0x7E 06 22 00 xx yy EF;(xx volume)(yy number of song)
-
-#define CMD_SEL_DEV 0X09 //SELECT STORAGE DEVICE, DATA IS REQUIRED
-                #define DEV_TF 0X02 //HELLO,IM THE DATA REQUIRED
-                
-#define SLEEP_MODE_START 0X0A
-#define SLEEP_MODE_WAKEUP 0X0B
-
-#define CMD_RESET 0X0C//CHIP RESET
-#define CMD_PLAY 0X0D //RESUME PLAYBACK
-#define CMD_PAUSE 0X0E //PLAYBACK IS PAUSED
-
-#define CMD_PLAY_WITHFOLDER 0X0F//DATA IS NEEDED, 0x7E 06 0F 00 01 02 EF;(play the song with the directory \01\002xxxxxx.mp3
-
-#define STOP_PLAY 0X16
-
-#define PLAY_FOLDER 0X17// data is needed 0x7E 06 17 00 01 XX EF;(play the 01 folder)(value xx we dont care)
-
-#define SET_CYCLEPLAY 0X19//data is needed 00 start; 01 close
-
-#define SET_DAC 0X17//data is needed 00 start DAC OUTPUT;01 DAC no output
+#define CMD_SEL_DEV 0X09 //SELECT STORAGE DEVICE, DATA REQUIRED
+#define DEV_TF 0X02 // DATA REQUIRED
 ////////////////////////////////////////////////////////////////////////////////////
 
-// SOUND INDEX
+// SOUND INDEX IN MP3 PLAYER SD CARD
 #define WRONG_SOUND_INDEX 0X0F01
 #define SCORE_SOUND_INDEX 0X0F02
 #define WIN_SOUND_INDEX 0X0F03
@@ -43,41 +29,42 @@
 
 // PINS
 #define DATA_PIN 10
-#define BUTTON1_PIN 9
-#define BUTTON2_PIN 3
-#define ARDUINO_RX 5//should connect to TX of the Serial MP3 Player module 
-#define ARDUINO_TX 6//connect to RX of the module 
+#define BUTTON1_PIN 9 // PIN CONNECTED TO PLAYER 1 BUTTON
+#define BUTTON2_PIN 3 // PIN CONNECTED TO PLAYER 2 BUTTON
+#define ARDUINO_RX 5  // TX OF SERIAL MP3 PLAYER
+#define ARDUINO_TX 6  // RX OF SERIAL MP3 PLAYER
 
 // LEDS
-#define NUM_LEDS 9
-CRGB leds[NUM_LEDS];
+#define NUM_LEDS 9  // LED NUMBER
+CRGB leds[NUM_LEDS]; 
 
 // VARS
-#define WIN_SCORE 4
-#define START_SECONDS 2
-#define SCORE_SECONDS 2
-#define WRONG_SECONDS 1
-#define SPEED_INCREASE 0.033
+#define WIN_SCORE 4 // SCORE NEEDED TO WIN
+#define START_SECONDS 2 // SECONDS 
+#define SCORE_SECONDS 2 // SECONDS SHOWING SCORE
+#define WRONG_SECONDS 1 // SECONDS IN WRONG CLICK SCREEN
+#define SPEED_INCREASE 0.033  // SPEED INCREASE PER SCORE
+#define minSpeed  0.022  // MINIMUM GAME SPEED
 
 // GAME VARS
 float speed = .085; //Time of change between LED's in seconds
-float minSpeed = .022;
 byte player1_score = 0; // PLAYER 1 IS PURPLE
 byte player2_score = 0; // PLAYER 2 IS GREEN
 bool inGame = false;
 
 //SERIAL SOUND
-SoftwareSerial mySerial(ARDUINO_RX, ARDUINO_TX);
-static int8_t Send_buf[8] = {0} ;//The MP3 player undestands orders in a 8 int string 
+SoftwareSerial mySerial(ARDUINO_RX, ARDUINO_TX);  // SOFTWARE SERIAL PROTOCOL
+static int8_t Send_buf[8] = {0} ;
 
 void setup() {  // SETUP
-  pinMode(BUTTON1_PIN, INPUT);
+  pinMode(BUTTON1_PIN, INPUT);  // SET BUTTONS TO INPUTS
   pinMode(BUTTON2_PIN, INPUT);
 
-  Serial.begin(9600);
+  Serial.begin(9600); // START SERIAL COMMUNICATIONS
   mySerial.begin(9600);
   delay(500);
-  sendCommand(CMD_SEL_DEV, DEV_TF);//select the TF card 
+  
+  sendCommand(CMD_SEL_DEV, DEV_TF); //select the TF card 
   
   delay(2000);
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
@@ -87,8 +74,7 @@ void setup() {  // SETUP
 
 void loop() { // LOOP 
 
-  if(!inGame){ // !INGAME
-      //fill_rainbow( leds, NUM_LEDS, 0, 20);
+  if(!inGame){ // !INGAME, DEAL WITH MAIN MANU LOGIC
       confetti();
       FastLED.show();
       delay(30);
@@ -109,16 +95,17 @@ void loop() { // LOOP
     
 } // LOOP
 
-void game(){
-     leds[0] = CRGB::Green;
+void game(){  // DEALS WITH GAME LOGIC
+     leds[0] = CRGB::Green; // SET PLAYER LEDS COLOR
      leds[NUM_LEDS -1] = CRGB::Purple;
-     for(int _led = 0; _led < NUM_LEDS; _led ++) {
+     
+     for(int _led = 0; _led < NUM_LEDS; _led ++) {  // FORWARDS LOOP
       leds[0] = CRGB::Green;
       leds[NUM_LEDS -1] = CRGB::Purple;
       leds[_led] = CRGB::White;
       FastLED.show();
 
-      for(int _milis = 0; _milis < speed * 100; _milis ++){ // FOWARDS
+      for(int _milis = 0; _milis < speed * 100; _milis ++){
         delay(10);
         if(digitalRead(BUTTON1_PIN) == HIGH){
           buttonPressed(false, _led);
@@ -132,9 +119,9 @@ void game(){
       }
       // Turn our current led back to black for the next loop around
       leds[_led] = CRGB::Black;
-   }  // FOWARDS LOOP
+    }  // FOWARDS LOOP
 
-    for(int _led = NUM_LEDS - 2; _led >= 0; _led --) { // BACKWARDS
+    for(int _led = NUM_LEDS - 2; _led >= 0; _led --) { // BACKWARDS LOOP
       leds[0] = CRGB::Green;
       leds[NUM_LEDS -1] = CRGB::Purple;
       leds[_led] = CRGB::White;
@@ -158,7 +145,7 @@ void game(){
    }  // BACKWARDS LOOP
 } // GAME
 
-void buttonPressed(bool _player, int _pos){
+void buttonPressed(bool _player, int _pos){ // WHEN A BUTTON IS PRESSED
     if(!_player){ // IF PLAYER1
       if(_pos == NUM_LEDS -1){  // IF IN PLAYER's WIN POS
           player1_score ++;
@@ -180,7 +167,7 @@ void buttonPressed(bool _player, int _pos){
     }  
 } // BUTTON PRESSED
 
-void showScore(){
+void showScore(){ // SHOWS SCORE AND DEALS WITH SCORE MANAGMENT
     if(player2_score == WIN_SCORE){
       win(true);
       return;  
@@ -216,7 +203,7 @@ void showScore(){
   
 } // SHOW SCORE
 
-void win(bool _player2){
+void win(bool _player2){  // WIN SEQUENCE
   sendCommand(CMD_PLAY_WITHVOLUME, WIN_SOUND_INDEX); //PLAY WRONG SOUND ON INITIALIZE
   if(_player2){
     for(int r=0;r<=6;r++){  // REPEAT WIN SEQUENCE X TIMES
@@ -240,7 +227,7 @@ void win(bool _player2){
       delay(500);
     }
   }
-  inGame = false;
+  inGame = false; // RESET GAME VALUeS
   player1_score = 0; 
   player2_score = 0;
   speed = .085;
@@ -248,52 +235,55 @@ void win(bool _player2){
   
   sendCommand(CMD_PLAY_WITHVOLUME, MENU_MUSIC_INDEX); //PLAY MENU SONG ON INITIALIZE
 }
-void wrongClick(){
+
+void wrongClick(){  // WRONG CLICK SEQUENCE
   sendCommand(CMD_PLAY_WITHVOLUME, WRONG_SOUND_INDEX); //PLAY WRONG SOUND ON INITIALIZE
   for(int _x = 0; _x < NUM_LEDS; _x ++) {  // SETS ALL LED RED
       leds[_x] = CRGB::Red;
   }
   FastLED.show();
+  
   delay(WRONG_SECONDS * 1000/2);
   allBlack();
   delay(300);
+  
   for(int _x = 0; _x < NUM_LEDS; _x ++) {  // SETS ALL LED BLACK
       leds[_x] = CRGB::Red;
   }
   FastLED.show();
+  
   delay(WRONG_SECONDS * 1000/2);
   allBlack();
 }
 
 void allBlack(){
-  for(int _x = 0; _x < NUM_LEDS; _x ++) {  // SETS ALL LED BLACK
+  for(int _x = 0; _x < NUM_LEDS; _x ++) {  // SETS ALL LEDs BLACK
       leds[_x] = CRGB::Black;
   }
   FastLED.show();
 }
-void confetti(){   // random colored speckles that blink in and fade smoothly
+void confetti(){   // Random colored speckles that blink in and fade smoothly
   fadeToBlackBy( leds, NUM_LEDS, 10);
   int pos = random16(NUM_LEDS);
   leds[pos] += CHSV( random8(64), 200, 255);
 }
 
-void sendCommand(int8_t command, int16_t dat)
+void sendCommand(int8_t _command, int16_t _data)
 {
  delay(20);
- Send_buf[0] = 0x7e; //starting byte
- Send_buf[1] = 0xff; //version
- Send_buf[2] = 0x06; //the number of bytes of the command without starting byte and ending byte
- Send_buf[3] = command; //
- Send_buf[4] = 0x00;//0x00 = no feedback, 0x01 = feedback
- Send_buf[5] = (int8_t)(dat >> 8);//datah
- Send_buf[6] = (int8_t)(dat); //datal
- Send_buf[7] = 0xef; //ending byte
- for(uint8_t i=0; i<8; i++)//
+ Send_buf[0] = 0x7e; // START BYTE
+ Send_buf[1] = 0xff;
+ Send_buf[2] = 0x06; // NUMBER OF BYTES IN COMMAND
+ Send_buf[3] = _command; 
+ Send_buf[4] = 0x00; // NO FEEDBACK REQUIRED
+ Send_buf[5] = (int8_t)(_data >> 8);// DATAH
+ Send_buf[6] = (int8_t)(_data); // DATAL
+ Send_buf[7] = 0xef; //END BYTE
+ 
+ for(uint8_t z=0; z<8; z++)//
  {
-   mySerial.write(Send_buf[i]) ;//send bit to serial mp3
-   Serial.print(Send_buf[i],HEX);//send bit to serial monitor in pc
+   mySerial.write(Send_buf[z]) ; // SEND BIT
  }
- Serial.println();
 }
 
 
