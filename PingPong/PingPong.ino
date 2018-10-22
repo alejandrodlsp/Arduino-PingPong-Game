@@ -57,11 +57,11 @@ CRGB leds[NUM_LEDS];
 #define START_SECONDS 2
 #define SCORE_SECONDS 2
 #define WRONG_SECONDS 1
-#define SPEED_INCREASE 0.03
+#define SPEED_INCREASE 0.033
 
 // GAME VARS
-float speed = .12; //Time of change between LED's in seconds
-float minSpeed = .03;
+float speed = .085; //Time of change between LED's in seconds
+float minSpeed = .022;
 byte player1_score = 0; // PLAYER 1 IS PURPLE
 byte player2_score = 0; // PLAYER 2 IS GREEN
 bool inGame = false;
@@ -241,6 +241,9 @@ void win(bool _player2){
     }
   }
   inGame = false;
+  player1_score = 0; 
+  player2_score = 0;
+  speed = .085;
   delay(1000);
   
   sendCommand(CMD_PLAY_WITHVOLUME, MENU_MUSIC_INDEX); //PLAY MENU SONG ON INITIALIZE
